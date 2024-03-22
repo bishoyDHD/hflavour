@@ -27,7 +27,7 @@ public:
   double eprimeTheta();
   double eprimeEnergy();
   double eprimepT();
-  double myRapidity(Vec4& p);
+  double myRapidity(Vec4 p);
   double jetTheta();
   double jetPhi();
   double jetEnergy();
@@ -89,7 +89,7 @@ bool isBHadron(int id){
   return (fmod(id/100,5.)==0.0 || id/1000==5);
 }
 template<typename T> 
-double myRapidity(Vec4& p){
+double disvars<T>::myRapidity(Vec4 p){
   return 0.5*log(p.pPos()/p.pNeg());
 }
 #endif

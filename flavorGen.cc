@@ -28,7 +28,7 @@ int main() {
   Event& event = pythia.event;
 
   double E_proton=250.;
-  double E_electron=20.0;
+  double E_electron=18.0;
   double Q2_min=0.;
   // set default no. of events
   int nEvents=5000000;
@@ -75,6 +75,25 @@ int main() {
   // Initialize()
   pythia.init();
 
+  double Q2,W2,yline,x_Bjor,E_e,theta_e,pT_e,rapidity_e;
+  std::vector<Float_t> theta_parton,E_jets,rapidity_jets,pT_parton,pTdist,etest;
+
+  TTree *ftree=new TTree("hflavor","EIC DIS Kinematics");
+  //ftree->SetAutoSave();
+  ftree->Branch("Q2",&Q2);
+  ftree->Branch("etest",&etest);
+  ftree->Branch("W2",&W2);
+  ftree->Branch("yline",&yline);
+  ftree->Branch("x_Bjor",&x_Bjor);
+  ftree->Branch("E_e",&E_e);
+  ftree->Branch("theta_e",&theta_e);
+  ftree->Branch("rapidity_e",&rapidity_e);
+  ftree->Branch("pT_e",&pT_e);
+  ftree->Branch("E_jets",&E_jets);
+  ftree->Branch("pT_parton",&pT_parton);
+  ftree->Branch("pTdist",&pTdist);
+  ftree->Branch("theta_parton",&theta_parton);
+  ftree->Branch("rapidity_jets",&rapidity_jets);
   // Histograms.
   Hist mult("charged multiplicity", 100, -0.5, 799.5);
   double W_max=std::sqrt(4.*E_proton*E_electron);
@@ -125,6 +144,14 @@ int main() {
   for (int iEvent = 0; iEvent < nEvents; ++iEvent) {
     if (!pythia.next()) continue;
 
+    // empty vectors
+    theta_parton.clear();
+    E_jets.clear();
+    rapidity_jets.clear();
+    pT_parton.clear();
+    pTdist.clear(); 
+    etest.clear();
+
     if (iEvent < 1) {pythia.info.list(); pythia.event.list();}
     
     //obtain DIS kinematics
@@ -140,6 +167,17 @@ int main() {
     h1x->Fill(disEvts.xBjorken());
     h1y->Fill(disEvts.yLine());
     h1pTe->Fill(disEvts.eprimepT());
+    // Assign eprime tree variables
+    Q2=disEvts.Q2();
+    W2=disEvts.W2();
+    x_Bjor=disEvts.xBjorken();
+    yline=disEvts.yLine();
+    E_e=disEvts.eprimeEnergy();
+    theta_e=disEvts.eprimeTheta();
+    pT_e=disEvts.eprimepT();
+    rapidity_e=disEvts.myRapidity(event[2].p());
+    etest.push_back(disEvts.eprimeEnergy());
+
     //store information for scatter angle
     for(int iangle=0; iangle<6; iangle++){
       angLow=theta_eprime[iangle]-0.5;
@@ -168,6 +206,12 @@ int main() {
         energyVal=disEvts.jetEnergy();
         h1pTparton->Fill(disEvts.jetpT());
         h1pTdist->Fill(disEvts.jetpT()/disEvts.eprimepT());
+        // Assign parton tree variables
+        theta_parton.push_back(disEvts.jetTheta());
+        E_jets.push_back(disEvts.jetEnergy());
+        rapidity_jets.push_back(disEvts.myRapidity(event[i].p()));
+        pT_parton.push_back(disEvts.jetpT());
+        pTdist.push_back(disEvts.jetpT()/disEvts.eprimepT());
         for(int iangle=0; iangle<4; iangle++){
           angLow=theta_jet[iangle]-0.005;
           angUp=theta_jet[iangle]+0.005;
@@ -186,6 +230,7 @@ int main() {
       }
     }// end of parton kinematics for-loop
   // End of event loop. Statistics. Histogram. Done.
+  ftree->Fill();
   }// event loop
   pythia.stat();
 
@@ -259,6 +304,7 @@ int main() {
   h1pTe->Write();
   h1pTparton->Write();
   h1pTdist->Write();
+  ftree->Write();
 /*
   h1pTparton->Write();
   multHist->Write();
