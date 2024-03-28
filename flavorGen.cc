@@ -18,6 +18,7 @@
 #include <TCanvas.h>
 #include <TH1D.h>
 #include "disvars.h"
+#include "storage.h"
 
 using namespace Pythia8;
 
@@ -28,10 +29,10 @@ int main() {
   Event& event = pythia.event;
 
   double E_proton=250.;
-  double E_electron=18.0;
+  double E_electron=20.0;
   double Q2_min=0.;
   // set default no. of events
-  int nEvents=5000000;
+  int nEvents=1500000;
 
   //pythia.readString("Random.seed = 3000000");
 
@@ -75,25 +76,33 @@ int main() {
   // Initialize()
   pythia.init();
 
-  double Q2,W2,yline,x_Bjor,E_e,theta_e,pT_e,rapidity_e;
-  std::vector<Float_t> theta_parton,E_jets,rapidity_jets,pT_parton,pTdist,etest;
-
+  // create TTree and branches containing DIS kinematics
+  diskinematics diskin;
   TTree *ftree=new TTree("hflavor","EIC DIS Kinematics");
   //ftree->SetAutoSave();
-  ftree->Branch("Q2",&Q2);
-  ftree->Branch("etest",&etest);
-  ftree->Branch("W2",&W2);
-  ftree->Branch("yline",&yline);
-  ftree->Branch("x_Bjor",&x_Bjor);
-  ftree->Branch("E_e",&E_e);
-  ftree->Branch("theta_e",&theta_e);
-  ftree->Branch("rapidity_e",&rapidity_e);
-  ftree->Branch("pT_e",&pT_e);
-  ftree->Branch("E_jets",&E_jets);
-  ftree->Branch("pT_parton",&pT_parton);
-  ftree->Branch("pTdist",&pTdist);
-  ftree->Branch("theta_parton",&theta_parton);
-  ftree->Branch("rapidity_jets",&rapidity_jets);
+  ftree->Branch("Q2",&diskin.Q2);
+  ftree->Branch("W2",&diskin.W2);
+  ftree->Branch("yline",&diskin.yline);
+  ftree->Branch("x_Bjor",&diskin.x_Bjor);
+  ftree->Branch("E_e",&diskin.E_e);
+  ftree->Branch("theta_e",&diskin.theta_e);
+  ftree->Branch("rapidity_e",&diskin.rapidity_e);
+  ftree->Branch("pT_e",&diskin.pT_e);
+  // jet kinematics
+  ftree->Branch("E_jet",&diskin.E_jet);
+  ftree->Branch("pT_jet",&diskin.pT_jet);
+  ftree->Branch("pTdist_jet",&diskin.pTdist_jet);
+  ftree->Branch("theta_jet",&diskin.theta_jet);
+  ftree->Branch("rapidity_jet",&diskin.rapidity_jet);
+  // parton kinematics
+  ftree->Branch("E_parton",&diskin.E_parton);
+  ftree->Branch("pT_parton",&diskin.pT_parton);
+  ftree->Branch("pTdist_parton",&diskin.pTdist_parton);
+  ftree->Branch("theta_parton",&diskin.theta_parton);
+  ftree->Branch("rapidity_parton",&diskin.rapidity_parton);
+  // heavy flavor kinematics
+  ftree->Branch("pT_bquark",&diskin.pT_bquark);
+  ftree->Branch("pT_bbarquark",&diskin.pT_bbarquark);
   // Histograms.
   Hist mult("charged multiplicity", 100, -0.5, 799.5);
   double W_max=std::sqrt(4.*E_proton*E_electron);
@@ -108,26 +117,6 @@ int main() {
   TH1D* h1pTe = new TH1D("h1pTe","",100,0.,20.);
   TH1D* h1pTparton = new TH1D("h1pTparton","",100,0.,50.);
   TH1D* h1pTdist = new TH1D("h1pTdist","ratio pT_parton/pT_electron",100,0.,5.);
-
-  /* Uncomment lines below for heavy flavor studies
-  //===============================================================
-  //      Heavy quark production from gamma-gluon fusion
-  //===============================================================
-  TH1D* multHist = new TH1D("multHist","Multiplicity",100,-0.5,99.5);
-  TH1D* bquarkPt = new TH1D("bquarkPt","bquarkPt",100,0,50);
-  TH1D* bbarquarkPt = new TH1D("bbarquarkPt","bbar quark Pt",100,0,50);
-  TH1D* B0mesonPt = new TH1D("BOmesonPt","B0mesonPt",100,0,50);
-  TH1D* B0barmesonPt = new TH1D("BObarmesonPt","B0bar meson Pt",100,0,50);
-  TH1D* BplusmesonPt = new TH1D("BplusmesonPt","BplusmesonPt",100,0,50);
-  TH1D* BminusmesonPt = new TH1D("BminusmesonPt","Bminus meson Pt",100,0,50);
-  TH1D* BplusmesonPtCDFrap = new TH1D("BplusmesonPtCDFrap","BplusmesonPt |y|<1",100,0,50);
-  TH1D* BminusmesonPtCDFrap = new TH1D("BminusmesonPtCDFrap","Bminus meson Pt |y|<1",100,0,50);
-  TH1D* electronFrombPt = new TH1D("electronFrombPt","electrons from b",100,0,30);
-  TH1D* positronFrombPt = new TH1D("positronFrombPt","positrons from b",100,0,30);
-  TH1D* epluseminusMinv = new TH1D("epluseminusMinv","e+ e- Inv. Mass",100,0,30);
-  TH1D* epluseminusRapidity = new TH1D("epluseminusRapidity","e+ e- y",80,-4,4);
-  TH1D* epluseminusMinvMidRap = new TH1D("epluseminusMinvMidRap","e+ e- Inv. Mass |y|<0.5",300,0,30);
-*/
 
   double theta_eprime[]={5,50,90,100,115,120,170};
   double E_eprime[]={5,10,15,21,23,30,50,120,170};
@@ -144,13 +133,12 @@ int main() {
   for (int iEvent = 0; iEvent < nEvents; ++iEvent) {
     if (!pythia.next()) continue;
 
-    // empty vectors
-    theta_parton.clear();
-    E_jets.clear();
-    rapidity_jets.clear();
-    pT_parton.clear();
-    pTdist.clear(); 
-    etest.clear();
+    // empty jet vectors                                // clear parton vectors
+    diskin.theta_jet.clear();                           diskin.theta_parton.clear();
+    diskin.E_jet.clear();                               diskin.E_parton.clear();
+    diskin.rapidity_jet.clear();                        diskin.rapidity_parton.clear();
+    diskin.pT_jet.clear();                              diskin.pT_parton.clear();
+    diskin.pTdist_jet.clear();                          diskin.pTdist_parton.clear(); 
 
     if (iEvent < 1) {pythia.info.list(); pythia.event.list();}
     
@@ -168,65 +156,39 @@ int main() {
     h1y->Fill(disEvts.yLine());
     h1pTe->Fill(disEvts.eprimepT());
     // Assign eprime tree variables
-    Q2=disEvts.Q2();
-    W2=disEvts.W2();
-    x_Bjor=disEvts.xBjorken();
-    yline=disEvts.yLine();
-    E_e=disEvts.eprimeEnergy();
-    theta_e=disEvts.eprimeTheta();
-    pT_e=disEvts.eprimepT();
-    rapidity_e=disEvts.myRapidity(event[2].p());
-    etest.push_back(disEvts.eprimeEnergy());
+    diskin.Q2=disEvts.Q2();
+    diskin.W2=disEvts.W2();
+    diskin.x_Bjor=disEvts.xBjorken();
+    diskin.yline=disEvts.yLine();
+    diskin.E_e=disEvts.eprimeEnergy();
+    diskin.theta_e=disEvts.eprimeTheta();
+    diskin.pT_e=disEvts.eprimepT();
+    diskin.rapidity_e=disEvts.myRapidity(event[2].p());
 
-    //store information for scatter angle
-    for(int iangle=0; iangle<6; iangle++){
-      angLow=theta_eprime[iangle]-0.5;
-      angUp=theta_eprime[iangle]+0.5;
-      if(thetaVal>=angLow && thetaVal<=angUp){
-        x_Beprime[iangle].push_back(disEvts.xBjorken());
-        Q2_eprime[iangle].push_back(disEvts.Q2());
-      }
-      // Energy of scattered electron
-      eprimeLow=E_eprime[iangle]-0.5;
-      eprimeUp=E_eprime[iangle]+0.5;
-      if(eprimeVal>=15 && eprimeVal<=22){
-        eprimeLow=E_eprime[iangle]-0.05;
-        eprimeUp=E_eprime[iangle]+0.05;
-      }
-      if(eprimeVal>=eprimeLow && eprimeVal<=eprimeUp){
-        x_eprimeE[iangle].push_back(disEvts.xBjorken());
-        Q2_eprimeE[iangle].push_back(disEvts.Q2());
-      }
-    }// end of electron kinematics for-loop
-    // scattered Jet kinematic information
     for(int i = 0; i < event.size(); ++i){
-      if(event[i].statusAbs() == 43){
+      // scattered non-lepton (parton) kinematic information
+      if(event[i].statusAbs() == 23 && event[i].isParton()){
+        disEvts.setJet4Vec(event[i].p());
+        // Assign parton tree variables
+        diskin.theta_parton.push_back(disEvts.jetTheta());
+        diskin.E_parton.push_back(disEvts.jetEnergy());
+        diskin.rapidity_parton.push_back(disEvts.myRapidity(event[i].p()));
+        diskin.pT_parton.push_back(disEvts.jetpT());
+        diskin.pTdist_parton.push_back(disEvts.jetpT()/disEvts.eprimepT());
+      }
+      // scattered jet kinematic information
+      if(event[i].statusAbs() == 43 && event[i].isDiquark()){
         disEvts.setJet4Vec(event[i].p());
         thetaVal=disEvts.jetTheta();
         energyVal=disEvts.jetEnergy();
         h1pTparton->Fill(disEvts.jetpT());
         h1pTdist->Fill(disEvts.jetpT()/disEvts.eprimepT());
         // Assign parton tree variables
-        theta_parton.push_back(disEvts.jetTheta());
-        E_jets.push_back(disEvts.jetEnergy());
-        rapidity_jets.push_back(disEvts.myRapidity(event[i].p()));
-        pT_parton.push_back(disEvts.jetpT());
-        pTdist.push_back(disEvts.jetpT()/disEvts.eprimepT());
-        for(int iangle=0; iangle<4; iangle++){
-          angLow=theta_jet[iangle]-0.005;
-          angUp=theta_jet[iangle]+0.005;
-          if(thetaVal>=angLow && thetaVal<=angUp){
-            x_Bjet[iangle].push_back(disEvts.xBjorken());
-            Q2_jet[iangle].push_back(disEvts.Q2());
-          }
-          // Energy of current jet
-          energyLow=E_jet[iangle]-0.5;
-          energyUp=E_jet[iangle]+0.5;
-          if(energyVal>=energyLow && energyVal<=energyUp){
-            x_jetE[iangle].push_back(disEvts.xBjorken());
-            Q2_jetE[iangle].push_back(disEvts.Q2());
-          }
-        }// end of parton-plotting for-loop
+        diskin.theta_jet.push_back(disEvts.jetTheta());
+        diskin.E_jet.push_back(disEvts.jetEnergy());
+        diskin.rapidity_jet.push_back(disEvts.myRapidity(event[i].p()));
+        diskin.pT_jet.push_back(disEvts.jetpT());
+        diskin.pTdist_jet.push_back(disEvts.jetpT()/disEvts.eprimepT());
       }
     }// end of parton kinematics for-loop
   // End of event loop. Statistics. Histogram. Done.
@@ -236,67 +198,7 @@ int main() {
 
   //Write Output ROOT hisotgram into ROOT file
   TFile* outFile = new TFile("pythiaOutputHistos1M.root","RECREATE");
-  TGraph* grTheta_eprime[10],*grE_eprime[10],*grTheta_jet[10],*grE_jet[10];
-  TGraph* grY[10],*grW[10];
-  int n=0;
-  for(int i=0; i<6; i++){
-    n=Q2_eprime[i].size();
-    grTheta_eprime[i]=new TGraph(n,&(x_Beprime[i][0]),&(Q2_eprime[i][0]));
-    grTheta_eprime[i]->SetMarkerStyle(kFullDotSmall);
-    // Energy
-    n=Q2_eprimeE[i].size();
-    grE_eprime[i]=new TGraph(n,&(x_eprimeE[i][0]),&(Q2_eprimeE[i][0]));
-    grE_eprime[i]->SetMarkerStyle(kFullDotSmall);
-    //Parton Graphs
-    n=Q2_jet[i].size();
-    grTheta_jet[i]=new TGraph(n,&(x_Bjet[i][0]),&(Q2_jet[i][0]));
-    grTheta_jet[i]->SetMarkerStyle(kFullDotSmall);
-  }
 
-  TCanvas* ang = new TCanvas("ang","scattered electron Angle",700,900);
-  ang->cd();
-  TMultiGraph* mgAng = new TMultiGraph();
-  for(int i=0; i<6; i++)
-    mgAng->Add(grTheta_eprime[i]);
-  ang->SetLogx();
-  ang->SetLogy();
-  mgAng->GetXaxis()->SetTitle("x");;
-  mgAng->GetYaxis()->SetTitle("Q^{2}");;
-  mgAng->Draw("AP");
-  ang->Write();
-  //Parton
-  TCanvas* ang2 = new TCanvas("parton","",700,900);
-  ang2->cd();
-  TMultiGraph* mgAng2 = new TMultiGraph();
-  for(int i=0; i<4; i++)
-    mgAng2->Add(grTheta_jet[i]);
-  ang2->SetLogx();
-  ang2->SetLogy();
-  mgAng2->Draw("AP");
-  ang2->Write();
-
-  TCanvas* ene = new TCanvas("ene","Scattered electron Energy",700,900);
-  ene->cd();
-  TMultiGraph* mgEne = new TMultiGraph();
-  for(int i=0; i<6; i++)
-    mgEne->Add(grE_eprime[i]);
-  ene->SetLogx();
-  ene->SetLogy();
-  mgEne->GetXaxis()->SetTitle("x");;
-  mgEne->GetYaxis()->SetTitle("Q^{2}");;
-  mgEne->Draw("AP");
-  ene->Write();
-/*
-  TCanvas* eprime = new TCanvas("eprime","",700,900);
-  eprime->cd();
-  TMultiGraph* epene = new TMultiGraph();
-  epene->Add(ge_pe05);
-  epene->Add(ge_pe50);
-  epene->Add(ge_pe120);
-  epene->Draw("AP");
-  eprime->SetLogx();
-  eprime->SetLogy();
-  eprime->Write();*/
   h1Q->Write();
   h1W->Write();
   h1x->Write();
@@ -305,22 +207,7 @@ int main() {
   h1pTparton->Write();
   h1pTdist->Write();
   ftree->Write();
-/*
-  h1pTparton->Write();
-  multHist->Write();
-  bquarkPt->Write();
-  bbarquarkPt->Write();
-  B0mesonPt->Write();
-  B0barmesonPt->Write();
-  BminusmesonPt->Write();
-  BplusmesonPtCDFrap->Write();
-  BminusmesonPtCDFrap->Write();
-  electronFrombPt->Write();
-  positronFrombPt->Write();
-  epluseminusMinv->Write();
-  epluseminusRapidity->Write();
-  epluseminusMinvMidRap->Write();
-*/
+
   outFile->Close();
 
   // Done.

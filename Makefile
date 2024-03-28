@@ -16,7 +16,7 @@ GLIBS         = $(ROOTGLIBS)
 
 EXEC = eicLFgen
 SRCS = flavorGen.cc
-DEPS = disvars.h
+DEPS = disvars.h storage.h
 OBJS = $(subst .cc,.o,$(SRCS))
 
 LDLIBS =$(ROOTLIBS) -L$(PYTHIA8_LIBRARY) -Wl,-rpath,$(PREFIX_LIB) -lpythia8 -ldl
